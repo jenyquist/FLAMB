@@ -10,3 +10,5 @@ doi:10.1016/j.advwatres.2014.12.002
 
 Python Code by Jonathan E. Nyquist
 Repository created February, 2015
+
+DON'T GET EXCITED.  THIS PROJECT IS IN  IT'S EARLY DAYS YET.
