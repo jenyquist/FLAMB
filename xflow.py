@@ -3,8 +3,9 @@
 from __future__ import division
 from collections import namedtuple
 from math import *
-from scipy.special import expn
 import numpy as np
+from scipy.special import expn
+from scipy.integrate import dblquad
 
 # ------------------------------------------------------------------------------
 def parameters():
@@ -99,9 +100,19 @@ def return_conductivities(R,dist_aq):
     betaI[0,:] = RHO*G*R[0]**2/(8*MU*dist_aq[0,:]) # pumped well
     betaI[1,:] = RHO*G*R[1]**2/(8*MU*dist_aq[1,:]) # observation well
     return betaI
-
 # ------------------------------------------------------------------------------
-    
+def return_distance_wells(i, j, L):
+    if i==j:
+        xij = 0
+    elif i==0 and j==1:
+        xij = -L
+    elif i==1 and j==0:
+        xij = L
+    else:
+        print('WARNING IN RETURN_DISTANCE_WELLS: distance not defined')
+        xij = -1
+    return xij
+# ------------------------------------------------------------------------------
 def return_flow_indices(Aq_well_connect, Nt, Naq):
     ''' Return the number for the flow in the linear system for a given 
     well i and aquifer num_aq'''
@@ -146,17 +157,7 @@ def flow_velocity_computation(p):
     Nt = len(p.vect_t)
     delta_t = p.vect_t[1] - p.vect_t[0]
     
-    # 0.2 Physical parameters
-    
-    # Density of water [kg/m3]
-    rho = 1.0e6 
-    
-    # Acceleration of gravity on the Earth's surface [m/s2]
-    g = 9.81
-    
-    # Viscosity of water under standard temperature and pressure [MPa-sec]
-    mu = 1.0
-    
+    # 0.2 Physical parameters are defined in return_conductivities    
     # 0.3 Conductivity normalized by the distance between aquifers
     betaI = return_conductivities(p)
     
@@ -196,18 +197,17 @@ def fun_G2(r,t,alpha):
     return res
 
 # ------------------------------------------------------------------------------
-# IntijI=IntegralComputation(Aq_well_connect,vect_t,L,Trans_aq,Stora_aq,R);
-def intergral_computation(p):
+def integral_computation(Aq_well_connect,vect_t,L,Trans_aq,Stora_aq,R,Naq):
     ''' Function to compute the integrals required in the linear system'''
     
     # Variables
-    nwell = len(p.Aq_well_connect)
-    alpha = p.Trans_aq/p.Stora_aq # Ratio be transmisivity and storativity
-    delta_t = p.vect_t[1] - p.vect_t[0] # Timestep
+    nwell = len(Aq_well_connect)
+    alpha = Trans_aq/Stora_aq # Ratio be transmisivity and storativity
+    delta_t = vect_t[1] - vect_t[0] # Timestep
     
     # Arrays to store the computed integrals for the wells i,j and 
     # aquifer I (must pass shape to zeros as a tuple)
-    IntijI = np.zeros((nwell, nwell, p.Naq, len(p.vect_t)))
+    IntijI = np.zeros((nwell, nwell, Naq, vect_t.shape[0]))
     
     # J.E. NYQUIST: Note the original matlab code was written here to handle
     # more than two wells, but never tested for that.  I've simplified by
@@ -215,15 +215,29 @@ def intergral_computation(p):
     # additional wells.
     # For each well
     
-    for i in range(len(nwell)):
-        for I in range(len(p.Aq_well_connect[0])):
-            num_aq = p.Aq_well_connect[0][I]
+    for i in range(nwell):
+        for I in range(len(Aq_well_connect[0])):
+            num_aq = Aq_well_connect[0][I]
             # Second loop on the wells to check if the aquifer intersects both
-            for j in range(len(nwell)):
-                if (num_aq in p.Aq_well_connect[1]):
-                    pass
+            for j in range(nwell):
+                if (num_aq in Aq_well_connect[1]):
+                    if i == j:
+                        for k in range(vect_t.shape[0]): # Loop over time
+                            IntijI[i,j,num_aq,k] = (fun_G2(R[j],vect_t[k],alpha[I])
+                                - fun_G2(R[j],vect_t[k]-delta_t,alpha[I])/
+                                  4*pi*Trans_aq[I])
+                    else:
+                        xij = return_distance_wells(i,j,L)
+                        for k in range(vect_t.shape[0]):
+                            t1 = vect_t[k] - delta_t
+                            t2 = vect_t[k]
+                            IntijI[i,j,num_aq,k] = dblquad(lambda r, theta: 
+                                fun_G1(r,theta,t1,t2,xij,alpha[I]), 
+                                0, 2*pi, lambda r: 0, lambda r: R[j])[0]
+                            IntijI[i,j,num_aq,k] /= 4*pi*Trans_aq[I]
     return IntijI
-
+#    ans = dblquad(lambda r, theta: xflow.fun_G1(r,theta,t1,t2,xij,alpha), 
+#            0, 2*pi, lambda r: 0, lambda r: R)[0]
 if __name__ == "__main__":
     # 
     #  MAIN ROUTINE

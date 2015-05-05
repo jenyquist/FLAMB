@@ -16,6 +16,13 @@ def test_parameters():
     assert len(p.dist_aq[1]) == p.Naq, 'Number of aquifers wrong in observation well'
     assert len(p.Stora_aq) == p.Naq, 'Number of storativities is wrong'
 
+def test_return_boreholes_list():
+    import pickle
+    f = open("p.pkl","rb")
+    p = pickle.load(f)
+    WellsInterAq = xflow.return_boreholes_list(p['Aq_well_connect'], p['Naq'])
+    assert WellsInterAq[1] == [0,1]
+
 def test_return_conductivities():
     import pickle
     f = open("p.pkl","rb")
@@ -40,6 +47,25 @@ def test_integrate():
     p = pickle.load(f)
     assert p['Naq'] == 5
 
+def test_fun_G1():
+    alpha = 2.0833
+    t1 = 10.0
+    t2 = 12.5
+    theta = 1.0
+    r = 1.5
+    xij = -21
+    answer_from_matlab = 0.002082057384242
+    tol = 1e-8;
+    assert abs(xflow.fun_G1(r,theta,t1,t2,xij,alpha) - answer_from_matlab) < tol
+
+def test_fun_G2():
+    alpha = 2.0833
+    t = 10.0
+    r = 1.5
+    answer_from_matlab = 28.614519953675380
+    tol = 1e-8;
+    assert abs(xflow.fun_G2(r,t,alpha) - answer_from_matlab) < tol
+
 def test_double_quadrature_on_fun_G1():
     from scipy.integrate import dblquad
     from math import pi
@@ -53,13 +79,19 @@ def test_double_quadrature_on_fun_G1():
             0, 2*pi, lambda r: 0, lambda r: R)[0]
     assert abs(ans - answer_from_matlab) < 1e-8
 
-def test_fun_G2():
-    alpha = 2.0833
-    t = 10.0
-    r = 1.5
-    answer_from_matlab = 28.614519953675380
-    tol = 1e-8;
-    assert abs(xflow.fun_G2(r,t,alpha) - answer_from_matlab) < tol
+def test_integral_computation():
+    import pickle
+    f = open("p.pkl","rb")
+    p = pickle.load(f)
+    Aq_well_connect = p['Aq_well_connect']
+    vect_t = p['vect_t']
+    L = p['L']
+    Trans_aq = p['Trans_aq']
+    Stora_aq = p['Stora_aq']
+    R = p['R']
+    Naq = p['Naq']
+    IntijI = xflow.integral_computation(Aq_well_connect,vect_t,L,Trans_aq,Stora_aq,R,Naq)
+    assert abs(IntijI[0,1,1,4] - 2.2986) < 1e-4
 
 '''
 Objects which have been dumped to a file with pickle.dump can be reread into a program by using the method pickle.load(file). pickle.load recognizes automatically, which format had been used for writing the data.
