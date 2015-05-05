@@ -1,0 +1,56 @@
+Variable                            Matlab          Python
+--------                            ------          ------
+
+Borehole parameters
+--------------------
+Distance between boreholes              L               L
+Radii of the boreholes               R=[]               R=[] 
+
+Pumping Parameters
+-------------------
+Pumping time                        pump_time       pump_time
+Pumping rate                            Q               Q
+
+Definition of the aquifers
+---------------------------
+Number of Aquifers                    Naq               Naq
+Depth of aquifers (well 1)          depth1=[]       depth1=[]
+Depth of aquifers (well 2)          depth2=[]       depth2=[]
+Transmissivities                    Trans_aq=[]     Trans_aq=[]
+Storativities                       Stora_aq=[]     Stora_aq=[]
+Aquifers connected each well  Aq_well_connect=[struct]   [ [], [] ]
+
+Time Discretization
+--------------------
+Maximum time                            t_max           t_max
+Number of time steps                    Nt              Nt
+
+Model Parameters
+----------------
+Time step                               delta_t         delta_t
+Vector of times                         vect_t          vect_t
+Distance between aquifers (well#)       dist_aq(1,:)    distaq=[0,:]
+Flow velocity at top of well            q_pumped        q_pumped
+
+Physical Parameters
+-------------------
+Water density                               rho             rho
+Gravitational acceleration                  g               g
+Dynamic viscosity of water                  mu              mu
+
+Conductivity normalized by distance         BetaI(1,:)    BetaI[0,:]
+
+Flow Indicies               Indicies=[,,] zeros((len(Aq_well_connect), Naq, Nt))
+Index counter                           cpt_flow            cpt_flow
+
+Flow Rates
+-----------
+Pumping well                                q_pump          q_pump
+Observation well                            q_obs           q_obs
+
+Named Tuple
+-----------
+params = namedtuple('params',['L', 'R', 'pump_time', 'Trans_aq', 'Stora_aq',
+                    'vect_t', 'dist_aq', 'q_pumped', 'Naq', 'Aq_well_connect'])
+p = params(L,R,pump_time,Trans_aq,Stora_aq,vect_t,dist_aq,q_pumped,
+        Naq,Aq_well_connect)
