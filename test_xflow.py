@@ -16,6 +16,15 @@ def test_parameters():
     assert len(p.dist_aq[1]) == p.Naq, 'Number of aquifers wrong in observation well'
     assert len(p.Stora_aq) == p.Naq, 'Number of storativities is wrong'
 
+def test_return_conductivities():
+    import pickle
+    f = open("p.pkl","rb")
+    p = pickle.load(f)
+    betaI = xflow.return_conductivities(p['R'], p['dist_aq'])
+    print(betaI)
+    assert abs(betaI[0,4] - 66.3236) < 1e-4
+    assert abs(betaI[1,4] - 74.9745) < 1e-4
+
 def test_return_flow_indices():
     import pickle
     f = open("p.pkl","rb")
@@ -23,6 +32,7 @@ def test_return_flow_indices():
     Nt = len(p['vect_t'])
     (Indices, cpt_flow) = xflow.return_flow_indices(p['Aq_well_connect'], Nt, p['Naq'])
     assert Indices.shape == (2, 5, 100)
+    assert Indices[0,1,-1] == 100
 
 def test_integrate():
     import pickle

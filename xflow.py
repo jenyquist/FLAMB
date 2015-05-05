@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
 # ------------------------------------------------------------------------------
 from __future__ import division
 from collections import namedtuple
+from math import *
+from scipy.special import expn
 import numpy as np
 
 # ------------------------------------------------------------------------------
@@ -66,6 +69,7 @@ def parameters():
     # Pumped Borehole
     dist_aq0 = np.array(depth0)
     dist_aq0[1:] = dist_aq0[1:]-dist_aq0[0:-1]
+
     
     # Observation borehole
     dist_aq1 = np.array(depth1)
@@ -76,17 +80,25 @@ def parameters():
     # Flow velocity at the top of the pumped well [m/s]
     q_pumped = Q*1e-3/(60*np.pi*R[0]**2)
     
-    # Check parameters
-    assert len(dist_aq0) == Naq, 'Number of aquifers wrong in pumping well.'
-    assert len(dist_aq1) == Naq, 'Number of aquifers wrong in observation well'
-    assert len(Stora_aq) == Naq, 'Number of storativities is wrong'
-    
     params = namedtuple('params',['L', 'R', 'pump_time', 'Trans_aq', 'Stora_aq',
                     'vect_t', 'dist_aq', 'q_pumped', 'Naq', 'Aq_well_connect'])
     p = params(L,R,pump_time,Trans_aq,Stora_aq,vect_t,dist_aq,q_pumped,Naq,Aq_well_connect)
     return p
 
-    # return L,R,pump_time,Trans_aq,Stora_aq,vect_t,dist_aq,q_pumped,Naq,Aq_well_connect
+#-------------------------------------------------------------------------------
+def return_conductivities(R,dist_aq):
+    '''Returns conductivities normalized by the distance between aquifers'''
+    # Density of water [kg/m3]
+    RHO = 1.0e6 
+    # Acceleration of gravity on the Earth's surface [m/s2]
+    G = 9.81
+    # Viscosity of water under standard temperature and pressure [MPa-sec]
+    MU = 1.0
+    # Conductivity normalized by the distance between aquifers
+    betaI = np.zeros(dist_aq.shape)
+    betaI[0,:] = RHO*G*R[0]**2/(8*MU*dist_aq[0,:]) # pumped well
+    betaI[1,:] = RHO*G*R[1]**2/(8*MU*dist_aq[1,:]) # observation well
+    return betaI
 
 # ------------------------------------------------------------------------------
     
@@ -95,7 +107,7 @@ def return_flow_indices(Aq_well_connect, Nt, Naq):
     well i and aquifer num_aq'''
         
     Indices = np.zeros((len(Aq_well_connect), Naq, Nt))
-    cpt_flow = 0  # Python arrays start at zero
+    cpt_flow = 1  # Number of connections
     
     # Loop over the wells
     for i in np.arange(len(Aq_well_connect)):
@@ -123,30 +135,6 @@ def return_boreholes_list(Aq_well_connect, Naq):
 
 # ------------------------------------------------------------------------------
 
-    def IntijI = IntergralComputation(p):
-        ''' Function to compute the integrals required in the linear system'''
-        
-        # Variables
-        nwell = len(p.Aq_well_connect)
-        alpha = p.Trans_aq/p.Stora_aq
-        delta_t = p.vect_t[1] - p.vect_t[0]
-        
-        # Arrays to store the computed integrals for the wells i,j and 
-        # aquifer I
-        IntijI = np.zeros(nwell, nwell, p.Naq, len(p.vect_t))
-        
-        # For each well
-        for i in range(nwell):
-            # Loop over the aquifers connected to this well
-            for I in range(len(p.Aq_well_connect[i]):
-                # Second loop on the wells to see if the well interests the
-                # aquifer in question
-                for j in range(nwell):
-                    pass
-        return IntijI
-                    
-# ------------------------------------------------------------------------------
-
 def flow_velocity_computation(p):
     ''' Define the linear system of equations AX=b where X = [X0 X1] with X0
     and X1 the flow velocity in the pumped and observation borehole,
@@ -170,9 +158,7 @@ def flow_velocity_computation(p):
     mu = 1.0
     
     # 0.3 Conductivity normalized by the distance between aquifers
-    betaI = np.zeros(p.dist_aq.shape)
-    betaI[0,:] = rho*g*p.R[0]**2/(8*mu*p.dist_aq[0,:]) # pumped well
-    betaI[1,:] = rho*g*p.R[1]**2/(8*mu*p.dist_aq[1,:]) # observation well
+    betaI = return_conductivities(p)
     
     # 1.0 LINEAR SYSTEM DEFINITION
     
@@ -183,13 +169,96 @@ def flow_velocity_computation(p):
     WellsInterAq = return_boreholes_list(p.Aq_well_connect, p.Naq)
     
     # Computation of the integrals required in the linear system
+    
+    # WORKING ON THIS
     IntijI = IntergralComputation(p)
     
     return (WellsInterAq)
     
-  
+# ------------------------------------------------------------------------------
     
+def fun_G1(r,theta,t1,t2,xij,alpha):
+    beta = ((xij-r*cos(theta))**2 + (r*sin(theta))**2)/(4*alpha)
+    if t1==0:
+        res = r*expn(1,beta/t2)
+    else:
+        res = r*(expn(1,beta/t2) - expn(1,beta/t1))      
+    return res
+
+# ------------------------------------------------------------------------------
+
+def fun_G2(r,t,alpha):
+    c = 4 * alpha * t
+    if t==0:
+        res = 0.0
+    else:
+        res = c*pi*(1 - exp(-r**2/c)) + pi*r**2*expn(1,r**2/c)
+    return res
+
+# ------------------------------------------------------------------------------
+# IntijI=IntegralComputation(Aq_well_connect,vect_t,L,Trans_aq,Stora_aq,R);
+def intergral_computation(p):
+    ''' Function to compute the integrals required in the linear system'''
     
+    # Variables
+    nwell = len(p.Aq_well_connect)
+    alpha = p.Trans_aq/p.Stora_aq # Ratio be transmisivity and storativity
+    delta_t = p.vect_t[1] - p.vect_t[0] # Timestep
     
+    # Arrays to store the computed integrals for the wells i,j and 
+    # aquifer I (must pass shape to zeros as a tuple)
+    IntijI = np.zeros((nwell, nwell, p.Naq, len(p.vect_t)))
     
+    # J.E. NYQUIST: Note the original matlab code was written here to handle
+    # more than two wells, but never tested for that.  I've simplified by
+    # hardwiring the two well case.  This will need to be changed to add
+    # additional wells.
+    # For each well
+    
+    for i in range(len(nwell)):
+        for I in range(len(p.Aq_well_connect[0])):
+            num_aq = p.Aq_well_connect[0][I]
+            # Second loop on the wells to check if the aquifer intersects both
+            for j in range(len(nwell)):
+                if (num_aq in p.Aq_well_connect[1]):
+                    pass
+    return IntijI
+
+if __name__ == "__main__":
+    # 
+    #  MAIN ROUTINE
+    #                   
     # ------------------------------------------------------------------------------
+    # -*- coding: utf-8 -*-
+    '''This program is a Python translation of Matlab routines written by Delphine
+    Roubinet.  The methodology is documented in:
+        
+    Roubinet, D., Irving, J., & Day-lewis, F. D. (2015). Advances in Water Resources
+    Development of a new semi-analytical model for cross-borehole flow experiments 
+    in fractured media. Advances in Water Resources, 76, 97–108. 
+    doi:10.1016/j.advwatres.2014.12.002
+    
+    Python Code by Jonathan E. Nyquist
+    February, 2015
+    '''
+    
+    # Load the module with all the functions
+    #import xflow
+    
+    # 1. PARAMETER DEFINITION
+    # All of the model parameters are set in this function
+    # p is a named tuple with the following parameters:
+    # L,R,pump_time,Trans_aq,Stora_aq,vect_t,dist_aq,q_pumped,Naq,Aq_well_connect
+    # Each can be accessed with the dot notation (eg. p.pump_time)
+    p = parameters()
+    
+    # 2. FLOW VELOCITY DETERMINATION
+    # 2.1 Flow velocity computation from the developed forward model
+    # q_pump, q_obs = flow_velocity_computation(p)
+    WellsInterAq = flow_velocity_computation(p)
+    print(WellInterAq)
+    #
+    
+    # 2.2 Conversion from [m/s] to [L/min]
+    
+    # 3. PLOT RESULTS FOR FLOW VELOCITY COMPARISON
