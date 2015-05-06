@@ -224,13 +224,48 @@ def flow_velocity_computation(p):
                                       indexI4 = Indices[j,num_aqi,l-1]
                                       Aglobal[indexI1,indexI4] += 0.5*betaiI*intIij_value
                               # flow qI + 1
-#index=find(Aq_well_connect(j).aq_connect==num_aqi,1);
+                              # (matlab) index=find(Aq_well_connect(j).aq_connect==num_aqi,1);
+                              index = indices(Aq_well_connect[j], lambda x: x==num_aqi)[0]
+                              if index < nb_aqj:
+                                  num_aq_nextj = Aq_well_connect[j][index+1]
+                                  indexI2 = Indices(j,num_aq_nextj,l)
+                                  if I==0 and i==1:
+                                      Aglobal[indexI1,indexI2] -= intIij_value/delta_t
+                                      if l > 0:
+                                          indexI3 = Indices[j,num_aq_next,l-1]
+                                          Aglobal[indexI1,indexI3] += intIij_value/delta_t
+                                  else:
+                                      Aglobal[indexI1,indexI2] -= 0.5*betaiI*intIij_value
+                                      if l > 0:
+                                          indexI4 = Indices(j,num_aq_next,l-1)
+                                          Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
+                   # Connection to the boreholes intersecting the previous aquifer I'
+                   # When it is not a flow at the top of the borehole
+                   if I > 0:
+                       num_aq_previousi = Aq_well_connect[i,I-1]
+                       for cpt_well in range(len(WellsInterAq[num_aqi_previousi])):
+                           j = WellsInterAq[num_aq_previousi,cpt_well]
+                           nb_aqi = len(Aq_well_connect[j])
+                           # Convolution in time
+                           for l in range(k):
+                               # intI1ij: Gamma_I, k^ij (aquifer I-1)
+                               intIij_value = IntijI[i,j,num_aq_previousi,k-l+1]
+                               # flow qI - 1
+                               indexI2 = Indices[j,num_aq_previousi,k-l+1]
+                               Aglobal[indexI1,indexI2] -= 0.5*betaiI*intIij_value
+                               if l > 0:
+                                   indexI4 = Indices[j,num_aq_previousi,l-1]
+                                   Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
+                               # flow qI
+                               index_previous = indices(Aq_well_connect[j], 
+                                   lambda x: x==num_aqi_previousi)[0]
+                               if index_previous < nb_aqj:
+                                   num_aq_nextj = Aq_well_connect[j,index_previous+1]
+                                   indexI2 = Indices[j,num_aq_nextj,l]
+                                   Aglobal[indexI1,indexI2] += 0.5*betaiI*intIij_value
+                                   if l > 0:
+working here.....
 
-
-
-    
-    
-    
     return 
     
 # ------------------------------------------------------------------------------
