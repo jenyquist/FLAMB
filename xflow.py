@@ -146,6 +146,11 @@ def return_boreholes_list(Aq_well_connect, Naq):
 
 # ------------------------------------------------------------------------------
 
+def indices(a, func):
+    return [i for (i, val) in enumerate(a) if func(val)]
+
+# ------------------------------------------------------------------------------
+
 def flow_velocity_computation(p):
     ''' Define the linear system of equations AX=b where X = [X0 X1] with X0
     and X1 the flow velocity in the pumped and observation borehole,
@@ -170,11 +175,63 @@ def flow_velocity_computation(p):
     WellsInterAq = return_boreholes_list(p.Aq_well_connect, p.Naq)
     
     # Computation of the integrals required in the linear system
+    IntijI = integral_computation(p.Aq_well_connect,p.vect_t,p.L,p.Trans_aq,
+        p.Stora_aq,p.R,p.Naq)
+
+    # Definition of the matrices and the second member of the system
+    Aglobal = np.zeros([cpt_flow, cpt_flow])
+    B = np.zeros([cpt_flow, 1])
+
+    # Loop over wells    
+    for i in range(len(p.Aq_well_connect)):
+        # Loop over the connected aquifers
+        for I in range(len(p.Aq_well_connect[i])):
+            # Definition of the aquifer numbering for the studied borehole
+            num_aqi = p.Aq_well_connect[i,I]
+            betaiI = betaI[i,I]
+            # Loop over time
+            for k in range(len(p.vect)):
+                # Matrix value related to the studied borehole aquifer
+                indexI1 = Indices[i,num_aqi,k] # well i and aquifer I
+                Aglobal[indexI1,indexI1] = 1
+                # Flow at the top of the pumped borehole
+                if i==0 and I==0:
+                    # For the pumping well: flow = pumped flow
+                    if k*delta_t <= p.pump_time:
+                        B[indexI1] = p.q_pumped
+                    # General case
+                    else:
+                       for cpt_well in range(len(WellsInterAq[num_aqi])): 
+                          j = WellInterAq[num_aqi,cpt_well]
+                          # Number of wells intersected by borehole j
+                          nb_aqj = len(Aq_well_connect[j])
+                          # Convolution product in time
+                          for l in range(k):
+                              # Relationship with aquifer I
+                              indexI2 = Indices[j,num_aqi,l]
+                              # intI1ij: Gamma_I, k^ij (aquifer I)
+                              intIij_value = IntijI[i,j,num_aqi,k-l+1]
+                              # flow qI
+                              if I==0 and i==1:
+                                  Aglobal[indexI1,indexI2] += intIij_value/delta_t
+                                  if l > 0:
+                                      # Indices for the well j and aquifer I
+                                      indexI3 = Indices[j,num_aqi,l-1]
+                                      Aglobal[indexI1,indexI3] -= intIij_value/delta_t
+                              else:
+                                  Aglobal[indexI1,indexI2] += 0.5*betaiI*IntIij_value
+                                  if l > 0:
+                                      indexI4 = Indices[j,num_aqi,l-1]
+                                      Aglobal[indexI1,indexI4] += 0.5*betaiI*intIij_value
+                              # flow qI + 1
+#index=find(Aq_well_connect(j).aq_connect==num_aqi,1);
+
+
+
     
-    # WORKING ON THIS
-    IntijI = IntergralComputation(p)
     
-    return (WellsInterAq)
+    
+    return 
     
 # ------------------------------------------------------------------------------
     

@@ -93,6 +93,11 @@ def test_integral_computation():
     IntijI = xflow.integral_computation(Aq_well_connect,vect_t,L,Trans_aq,Stora_aq,R,Naq)
     assert abs(IntijI[0,1,1,4] - 2.2986) < 1e-4
 
+def test_indices():
+    a = [1, 2, 3, 1, 2, 3, 1, 2, 3]
+    inds = xflow.indices(a, lambda x: x > 2)[0] #[0] being the 2nd matlab argument
+    assert inds == 2
+
 '''
 Objects which have been dumped to a file with pickle.dump can be reread into a program by using the method pickle.load(file). pickle.load recognizes automatically, which format had been used for writing the data.
 A simple example:
