@@ -6,6 +6,7 @@ from math import *
 import numpy as np
 from scipy.special import expn
 from scipy.integrate import dblquad
+import pdb
 
 # ------------------------------------------------------------------------------
 def parameters():
@@ -152,6 +153,7 @@ def indices(a, func):
 # ------------------------------------------------------------------------------
 
 def flow_velocity_computation(p):
+    import pdb
     ''' Define the linear system of equations AX=b where X = [X0 X1] with X0
     and X1 the flow velocity in the pumped and observation borehole,
     respectively.'''
@@ -164,7 +166,7 @@ def flow_velocity_computation(p):
     
     # 0.2 Physical parameters are defined in return_conductivities    
     # 0.3 Conductivity normalized by the distance between aquifers
-    betaI = return_conductivities(p)
+    betaI = return_conductivities(p.R, p.dist_aq)
     
     # 1.0 LINEAR SYSTEM DEFINITION
     
@@ -187,10 +189,10 @@ def flow_velocity_computation(p):
         # Loop over the connected aquifers
         for I in range(len(p.Aq_well_connect[i])):
             # Definition of the aquifer numbering for the studied borehole
-            num_aqi = p.Aq_well_connect[i,I]
+            num_aqi = p.Aq_well_connect[i][I]
             betaiI = betaI[i,I]
             # Loop over time
-            for k in range(len(p.vect)):
+            for k in range(len(p.vect_t)):
                 # Matrix value related to the studied borehole aquifer
                 indexI1 = Indices[i,num_aqi,k] # well i and aquifer I
                 Aglobal[indexI1,indexI1] = 1
@@ -200,73 +202,82 @@ def flow_velocity_computation(p):
                     if k*delta_t <= p.pump_time:
                         B[indexI1] = p.q_pumped
                     # General case
-                    else:
-                       for cpt_well in range(len(WellsInterAq[num_aqi])): 
-                          j = WellInterAq[num_aqi,cpt_well]
-                          # Number of wells intersected by borehole j
-                          nb_aqj = len(Aq_well_connect[j])
-                          # Convolution product in time
-                          for l in range(k):
-                              # Relationship with aquifer I
-                              indexI2 = Indices[j,num_aqi,l]
-                              # intI1ij: Gamma_I, k^ij (aquifer I)
-                              intIij_value = IntijI[i,j,num_aqi,k-l+1]
-                              # flow qI
+                else:
+                   for cpt_well in range(len(WellsInterAq[num_aqi])): 
+                      j = WellsInterAq[num_aqi][cpt_well]
+                      # Number of wells intersected by borehole j
+                      nb_aqj = len(p.Aq_well_connect[j])
+                      # Convolution product in time
+                      for l in range(k):
+                          # Relationship with aquifer I
+                          indexI2 = Indices[j,num_aqi,l]
+                          # intI1ij: Gamma_I, k^ij (aquifer I)
+                          intIij_value = IntijI[i,j,num_aqi,k-l]
+                          # flow qI
+                          if I==0 and i==1:
+                              Aglobal[indexI1,indexI2] += intIij_value/delta_t
+                              if l > 0:
+                                  # Indices for the well j and aquifer I
+                                  indexI3 = Indices[j,num_aqi,l-1]
+                                  Aglobal[indexI1,indexI3] -= intIij_value/delta_t
+                          else:
+                              Aglobal[indexI1,indexI2] += 0.5*betaiI*intIij_value
+                              if l > 0:
+                                  indexI4 = Indices[j,num_aqi,l-1]
+                                  Aglobal[indexI1,indexI4] += 0.5*betaiI*intIij_value
+                          # flow qI + 1
+                          # (matlab) index=find(Aq_well_connect(j).aq_connect==num_aqi,1);
+                          index = indices(p.Aq_well_connect[j], lambda x: x==num_aqi)[0]
+                          if index < nb_aqj:
+                              num_aq_nextj = p.Aq_well_connect[j][index]
+                              indexI2 = Indices[j,num_aq_nextj,l]
                               if I==0 and i==1:
-                                  Aglobal[indexI1,indexI2] += intIij_value/delta_t
+                                  Aglobal[indexI1,indexI2] -= intIij_value/delta_t
                                   if l > 0:
-                                      # Indices for the well j and aquifer I
-                                      indexI3 = Indices[j,num_aqi,l-1]
-                                      Aglobal[indexI1,indexI3] -= intIij_value/delta_t
+                                      indexI3 = Indices[j,num_aq_nextj,l-1]
+                                      Aglobal[indexI1,indexI3] += intIij_value/delta_t
                               else:
-                                  Aglobal[indexI1,indexI2] += 0.5*betaiI*IntIij_value
+                                  Aglobal[indexI1,indexI2] -= 0.5*betaiI*intIij_value
                                   if l > 0:
-                                      indexI4 = Indices[j,num_aqi,l-1]
-                                      Aglobal[indexI1,indexI4] += 0.5*betaiI*intIij_value
-                              # flow qI + 1
-                              # (matlab) index=find(Aq_well_connect(j).aq_connect==num_aqi,1);
-                              index = indices(Aq_well_connect[j], lambda x: x==num_aqi)[0]
-                              if index < nb_aqj:
-                                  num_aq_nextj = Aq_well_connect[j][index+1]
-                                  indexI2 = Indices(j,num_aq_nextj,l)
-                                  if I==0 and i==1:
-                                      Aglobal[indexI1,indexI2] -= intIij_value/delta_t
-                                      if l > 0:
-                                          indexI3 = Indices[j,num_aq_next,l-1]
-                                          Aglobal[indexI1,indexI3] += intIij_value/delta_t
-                                  else:
-                                      Aglobal[indexI1,indexI2] -= 0.5*betaiI*intIij_value
-                                      if l > 0:
-                                          indexI4 = Indices(j,num_aq_next,l-1)
-                                          Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
-                   # Connection to the boreholes intersecting the previous aquifer I'
-                   # When it is not a flow at the top of the borehole
-                   if I > 0:
-                       num_aq_previousi = Aq_well_connect[i,I-1]
-                       for cpt_well in range(len(WellsInterAq[num_aqi_previousi])):
-                           j = WellsInterAq[num_aq_previousi,cpt_well]
-                           nb_aqi = len(Aq_well_connect[j])
-                           # Convolution in time
-                           for l in range(k):
-                               # intI1ij: Gamma_I, k^ij (aquifer I-1)
-                               intIij_value = IntijI[i,j,num_aq_previousi,k-l+1]
-                               # flow qI - 1
-                               indexI2 = Indices[j,num_aq_previousi,k-l+1]
-                               Aglobal[indexI1,indexI2] -= 0.5*betaiI*intIij_value
-                               if l > 0:
-                                   indexI4 = Indices[j,num_aq_previousi,l-1]
-                                   Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
-                               # flow qI
-                               index_previous = indices(Aq_well_connect[j], 
-                                   lambda x: x==num_aqi_previousi)[0]
-                               if index_previous < nb_aqj:
-                                   num_aq_nextj = Aq_well_connect[j,index_previous+1]
-                                   indexI2 = Indices[j,num_aq_nextj,l]
-                                   Aglobal[indexI1,indexI2] += 0.5*betaiI*intIij_value
-                                   if l > 0:
-working here.....
-
-    return 
+                                      indexI4 = Indices[j,num_aq_nextj,l-1]
+                                      Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
+                # Connection to the boreholes intersecting the previous aquifer I'
+                # When it is not a flow at the top of the borehole
+                if I > 0:
+                    num_aq_previousi = p.Aq_well_connect[i][I-1]
+                    for cpt_well in range(len(WellsInterAq[num_aq_previousi])):
+                        j = WellsInterAq[num_aq_previousi][cpt_well]
+                        nb_aqj = len(p.Aq_well_connect[j])
+                        # Convolution in time
+                        for l in range(k):
+                            # intI1ij: Gamma_I, k^ij (aquifer I-1)
+                            intIij_value = IntijI[i,j,num_aq_previousi,k-l]
+                            # flow qI - 1
+                            indexI2 = Indices[j,num_aq_previousi,k-l]
+                            Aglobal[indexI1,indexI2] -= 0.5*betaiI*intIij_value
+                            if l > 0:
+                                indexI4 = Indices[j,num_aq_previousi,l-1]
+                                Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
+                                # flow qI
+                                index_previous = indices(p.Aq_well_connect[j],
+                                    lambda x: x==num_aq_previousi)[0]
+                                if index_previous < nb_aqj:
+                                    num_aq_nextj = p.Aq_well_connect[j][index_previous]
+                                    indexI2 = Indices[j,num_aq_nextj,l]
+                                    Aglobal[indexI1,indexI2] += 0.5*betaiI*intIij_value
+                                if l > 0:
+                                    indexI4 = Indices[j,num_aq_nextj,l-1]
+                                    Aglobal[indexI1,indexI4] += 0.5*betaiI*intIij_value
+    # Linear system solution    
+    #pdb.set_trace()
+    q = np.linalg.solve(Aglobal,B)
+    # Storage
+    # Flowvelocities in the pumped borehole
+    Naq_pump = len(Aq_well_connect[0])
+    q_pump = np.zeros([Naq_pump, Nt])
+    for I in range(Naq_pump):
+        q_pump[I,:] = q[Nt*Naq_pump+I*Nt+1:Nt*Naq_pump+I*Nt+Nt]   
+    return (q_pump, q_ops) 
     
 # ------------------------------------------------------------------------------
     
@@ -361,8 +372,12 @@ if __name__ == "__main__":
     # 2. FLOW VELOCITY DETERMINATION
     # 2.1 Flow velocity computation from the developed forward model
     # q_pump, q_obs = flow_velocity_computation(p)
-    WellsInterAq = flow_velocity_computation(p)
-    print(WellInterAq)
+    q_pump, q_obs = flow_velocity_computation(p)
+    pdb.set_trace()
+    print(type(q_pump))
+    pass
+    pass
+ 
     #
     
     # 2.2 Conversion from [m/s] to [L/min]

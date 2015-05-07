@@ -97,22 +97,3 @@ def test_indices():
     a = [1, 2, 3, 1, 2, 3, 1, 2, 3]
     inds = xflow.indices(a, lambda x: x > 2)[0] #[0] being the 2nd matlab argument
     assert inds == 2
-
-'''
-Objects which have been dumped to a file with pickle.dump can be reread into a program by using the method pickle.load(file). pickle.load recognizes automatically, which format had been used for writing the data.
-A simple example:
-
->>> cities = ["Paris", "Dijon","Lyon","Strasbourg"]
->>> fh = open("data.pkl","bw")
->>> pickle.dump(cities,fh)
->>> fh.close()
-
-The file data.pkl can be read in again by Python in the same or another session or by a different program:
-
->>> import pickle
->>> f = open("data.pkl","rb")
->>> villes = pickle.load(f)
->>> print(villes)
-['Paris', 'Dijon', 'Lyon', 'Strasbourg']
->>>
-'''
