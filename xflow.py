@@ -187,7 +187,7 @@ def flow_velocity_computation(vect_t,Trans_aq,Stora_aq,dist_aq,R,L,q_pumped,Aq_w
     B = np.zeros([cpt_flow, 1])
 
     # Loop over wells
-    pdb.set_trace()   
+    # pdb.set_trace()   
     
     for i in range(len(Aq_well_connect)):
         # Loop over the connected aquifers
@@ -208,12 +208,16 @@ def flow_velocity_computation(vect_t,Trans_aq,Stora_aq,dist_aq,R,L,q_pumped,Aq_w
                         B[indexI1] = q_pumped
                     # General case
                 else:
-                    for cpt_well in range(len(WellsInterAq[num_aqi])): 
+                    cpt_well = 0
+                    while True:
+#                   for cpt_well in range(len(WellsInterAq[num_aqi])): 
                        j = WellsInterAq[num_aqi][cpt_well]
                        # Number of wells intersected by borehole j
                        nb_aqj = len(Aq_well_connect[j])
                        # Convolution product in time
-                       for l in range(k):
+                       #for l in range(k):
+                       l = 0    
+                       while True:
                            # Relationship with aquifer I
                            indexI2 = Indices[j,num_aqi,l]
                            # intI1ij: Gamma_I, k^ij (aquifer I)
@@ -234,7 +238,7 @@ def flow_velocity_computation(vect_t,Trans_aq,Stora_aq,dist_aq,R,L,q_pumped,Aq_w
                            # (matlab) index=find(Aq_well_connect(j).aq_connect==num_aqi,1);
                            index = indices(Aq_well_connect[j], lambda x: x==num_aqi)[0]
                            if index < nb_aqj:
-                               num_aq_nextj = Aq_well_connect[j][index]
+                               num_aq_nextj = Aq_well_connect[j][index+1]
                                indexI2 = Indices[j,num_aq_nextj,l]
                                if I==0 and i==1:
                                    Aglobal[indexI1,indexI2] -= intIij_value/delta_t
@@ -246,15 +250,24 @@ def flow_velocity_computation(vect_t,Trans_aq,Stora_aq,dist_aq,R,L,q_pumped,Aq_w
                                    if l > 0:
                                        indexI4 = Indices[j,num_aq_nextj,l-1]
                                        Aglobal[indexI1,indexI4] -= 0.5*betaiI*intIij_value
+                           l += 1
+                           if (l >= k ): break
+                       cpt_well += 1
+                       if (cpt_well >= len(WellsInterAq[num_aqi])): break  
                 # Connection to the boreholes intersecting the previous aquifer I'
                 # When it is not a flow at the top of the borehole
                     if I > 0:
                         num_aq_previousi = Aq_well_connect[i][I-1]
-                        for cpt_well in range(len(WellsInterAq[num_aq_previousi])):
+                        # This loop needs to execute at
+                        # for cpt_well in range(len(WellsInterAq[num_aq_previousi])):
+                        cpt_well = 0
+                        while True:
                             j = WellsInterAq[num_aq_previousi][cpt_well]
                             nb_aqj = len(Aq_well_connect[j])
                             # Convolution in time
-                            for l in range(k):
+                            # for l in range(k):
+                            l = 0
+                            while True:
                                 # intI1ij: Gamma_I, k^ij (aquifer I-1)
                                 intIij_value = IntijI[i,j,num_aq_previousi,k-l]
                                 # flow qI - 1
@@ -273,6 +286,10 @@ def flow_velocity_computation(vect_t,Trans_aq,Stora_aq,dist_aq,R,L,q_pumped,Aq_w
                                     if l > 0:
                                         indexI4 = Indices[j,num_aq_nextj,l-1]
                                         Aglobal[indexI1,indexI4] += 0.5*betaiI*intIij_value
+                                l += 1
+                                if (l > k): break
+                            cpt_well += 1
+                            if (cpt_well >= len(WellsInterAq[num_aq_previousi])): break                
     # Linear system solution
     pdb.set_trace()                            
     q = np.linalg.solve(Aglobal,B)
